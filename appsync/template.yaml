@@ -1,0 +1,128 @@
+Resources:
+  DynamoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: DynamoTable
+      AttributeDefinitions:
+        - AttributeName: "NoteId"
+          AttributeType: S
+      KeySchema:
+        - AttributeName: "NoteId"
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  DynamoTableRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: DynamoTableRole
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "appsync.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+  DynamoTableRoleRolePolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: "DynamoTableRoleWrite"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "dynamodb:PutItem"
+              - "dynamodb:GetItem"
+            Resource: "*"
+      Roles:
+        - !Ref DynamoTableRole
+
+  GraphQLApi:
+    Type: AWS::AppSync::GraphQLApi
+    Properties:
+      Name: SampleAPI
+      AuthenticationType: API_KEY
+
+  GraphQLApiKey:
+    Type: AWS::AppSync::ApiKey
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+
+  MutationApiGraphQLSchema:
+    Type: AWS::AppSync::GraphQLSchema
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      Definition: |
+        type Mutation {
+          createNote(NoteId: ID!, Title: String!): Note
+        }
+        type Query {
+          getNote(NoteId: ID!): Note
+        }
+        type Schema { 
+          mutation: Mutation
+          query: Query
+        }
+        type Note {
+          NoteId: ID!
+          Title: String
+        }
+
+  CreateNoteApiGraphQLResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DataSourceName: !GetAtt ApiGraphQLDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "PutItem",
+          "key": {
+            "NoteId": $util.dynamodb.toDynamoDBJson($ctx.args.NoteId),
+          },
+          "attributeValues": {
+            "Title": $util.dynamodb.toDynamoDBJson($ctx.args.Title),
+          }
+        }
+      ResponseMappingTemplate: "$util.toJson($ctx.result)"
+      FieldName: createNote
+      TypeName: Mutation
+
+  GetNoteApiGraphQLResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DataSourceName: !GetAtt ApiGraphQLDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "GetItem",
+          "key": {
+            "NoteId": $util.dynamodb.toDynamoDBJson($ctx.args.NoteId),
+          },
+        }
+      ResponseMappingTemplate: "$util.toJson($ctx.result)"
+      FieldName: getNote
+      TypeName: Query
+
+  ApiGraphQLDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      Name: MutationAPIDataSource
+      ApiId: !GetAtt GraphQLApi.ApiId
+      ServiceRoleArn: !GetAtt DynamoTableRole.Arn
+      Type: AMAZON_DYNAMODB
+      DynamoDBConfig:
+        AwsRegion: eu-west-1
+        TableName: !Ref DynamoTable
+
+Outputs:
+  GraphQLEndpoint:
+    Value: !GetAtt GraphQLApi.GraphQLUrl
+  GraphQLApiKey:
+    Value: !GetAtt GraphQLApiKey.ApiKey
