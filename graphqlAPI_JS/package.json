@@ -1,0 +1,7 @@
+{
+  "name": "infra",
+  "version": "1.0.0",
+  "devDependencies": {
+    "@aws-appsync/utils": "^1.1.0"
+  }
+}

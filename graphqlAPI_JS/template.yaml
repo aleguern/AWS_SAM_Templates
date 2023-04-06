@@ -1,0 +1,128 @@
+Resources:
+  ListsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: Lists
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: S
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  ListsTableRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ListsTableRole
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "appsync.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+  ListsTableRolePolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: "ListsTableRolePolicy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "dynamodb:PutItem"
+              - "dynamodb:UpdateItem"
+              - "dynamodb:GetItem"
+              - "dynamodb:BatchGetItem"
+              - "dynamodb:Scan"
+            Resource: !GetAtt ListsTable.Arn
+      Roles:
+        - !Ref ListsTableRole
+
+  GraphQLApi:
+    Type: AWS::AppSync::GraphQLApi
+    Properties:
+      AuthenticationType: API_KEY
+      Name: Lists
+
+  GraphQLApiKey:
+    Type: AWS::AppSync::ApiKey
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+
+  MutationApiGraphQLSchema:
+    Type: AWS::AppSync::GraphQLSchema
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DefinitionS3Location: schema.graphql
+
+  ListsDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      Name: ListsDataSource
+      ApiId: !GetAtt GraphQLApi.ApiId
+      ServiceRoleArn: !GetAtt ListsTableRole.Arn
+      Type: AMAZON_DYNAMODB
+      DynamoDBConfig:
+        AwsRegion: eu-west-1
+        TableName: !Ref ListsTable
+
+  GetListFunction:
+    Type: AWS::AppSync::FunctionConfiguration
+    Properties:
+      Name: getList
+      FunctionVersion: 2018-05-29
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DataSourceName: !GetAtt ListsDataSource.Name
+      CodeS3Location: "src/getList.js"
+      Runtime:
+        RuntimeVersion: 1.0.0
+        Name: APPSYNC_JS
+  GetList:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      FieldName: getList
+      TypeName: Query
+      Runtime:
+        RuntimeVersion: 1.0.0
+        Name: APPSYNC_JS
+      CodeS3Location: "src/pipeline.js"
+      Kind: PIPELINE
+      PipelineConfig:
+        Functions:
+          - !GetAtt GetListFunction.FunctionId
+
+  CreateListFunction:
+    Type: AWS::AppSync::FunctionConfiguration
+    Properties:
+      Name: createList
+      FunctionVersion: 2018-05-29
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DataSourceName: !GetAtt ListsDataSource.Name
+      CodeS3Location: "src/createList.js"
+      Runtime:
+        RuntimeVersion: 1.0.0
+        Name: APPSYNC_JS
+  CreateList:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      FieldName: createList
+      TypeName: Mutation
+      Runtime:
+        RuntimeVersion: 1.0.0
+        Name: APPSYNC_JS
+      CodeS3Location: "src/pipeline.js"
+      Kind: PIPELINE
+      PipelineConfig:
+        Functions:
+          - !GetAtt CreateListFunction.FunctionId

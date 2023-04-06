@@ -1,6 +1,8 @@
 Resources:
   DynamoTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       TableName: DynamoTable
       AttributeDefinitions:
