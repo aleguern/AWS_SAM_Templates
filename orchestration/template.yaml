@@ -1,0 +1,146 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Function:
+    Architectures:
+      - x86_64
+    Runtime: nodejs18.x
+    Handler: app.handler
+    Timeout: 180
+    MemorySize: 256
+
+Resources:
+  HaltExecutionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/haltExecution
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints:
+          - app.ts
+
+  StartExecutionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/startExecution
+      Environment:
+        Variables:
+          STEP_FUNCTION_ARN: !GetAtt MyStepFunction.Arn
+      Policies:
+        StepFunctionsExecutionPolicy:
+          StateMachineName: !GetAtt MyStepFunction.Name
+      Events:
+        StartExecution:
+          Type: Api
+          Properties:
+            Path: /send
+            Method: post
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints:
+          - app.ts
+
+  FinishExecutionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/finishExecution
+      Policies:
+        - AWSLambdaExecute
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: "states:sendTaskSuccess"
+              Resource: !GetAtt MyStepFunction.Arn
+      Events:
+        FinishExecution:
+          Type: Api
+          Properties:
+            Path: /webhook
+            Method: post
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints:
+          - app.ts
+
+  MyStepFunction:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      DefinitionString: !Sub |
+        {
+          "StartAt": "HaltExecution",
+          "States": {
+            "HaltExecution": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+              "Parameters": {
+                "Payload": {
+                  "input.$": "$",
+                  "taskToken.$": "$$.Task.Token"
+                },
+                "FunctionName": "${HaltExecutionFunction}"
+              },
+              "Next": "FinalState"
+            },
+            "FinalState": {
+              "Type": "Pass",
+              "End": true
+            }
+          }
+        }
+      RoleArn: !GetAtt MyStepFunctionExecutionRole.Arn
+
+  MyStepFunctionExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: stepfunction
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StepFunctionsExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                  - states:DescribeExecution
+                  - states:StopExecution
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt HaltExecutionFunction.Arn
+
+Outputs:
+  StartExecutionEndpoint:
+    Description: "API Gateway endpoint URL to start execution"
+    Value: !Sub >
+      curl -X POST -H "Content-Type: application/json" -d '{"message":1234}' https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/send/
+  FinishExecutionEndpoint:
+    Description: "API Gateway endpoint URL to finish execution"
+    Value: !Sub >
+      curl -X POST -H "Content-Type: application/json" -d '{"taskToken":"<your_token>"}' https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/webhook/

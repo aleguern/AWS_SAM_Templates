@@ -4,4 +4,4 @@ I often found myself using the same patterns with AWS SAM over and over. This is
 
 List:
 - [Image recognition (S3, lambda, DynamoDB, Rekognition)](/rekognition/)
-- [GraphQL API (AppSync, DynamoDB)](/appsync/)
+- [GraphQL API (AppSync, DynamoDB)](/graphqlAPI/)
