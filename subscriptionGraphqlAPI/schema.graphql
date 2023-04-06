@@ -1,0 +1,18 @@
+type Schema {
+  mutation: Mutation
+  query: Query
+}
+type Mutation {
+  createList(title: String!): List
+  updateList(id: ID!, title: String!): List
+}
+type Query {
+  getList(id: ID!): List
+}
+type List {
+  id: String
+  title: String
+}
+type Subscription {
+  topicPosting(id: ID!): List @aws_subscribe(mutations: ["updateList"])
+}

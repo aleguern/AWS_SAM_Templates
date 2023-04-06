@@ -1,16 +1,13 @@
 import { util } from "@aws-appsync/utils";
 
 export function request(ctx) {
-  // const { list } = ctx.args;
-  // const { title } = list;
-
   return {
     operation: "PutItem",
     key: {
       id: util.dynamodb.toDynamoDB(util.autoId()),
     },
     attributeValues: {
-      title: util.dynamodb.toDynamoDB("coucou"),
+      title: util.dynamodb.toDynamoDB(ctx.args.title),
     },
   };
 }
@@ -23,6 +20,5 @@ export function response(ctx) {
       return util.appendError(error.message, error.type, result, null);
     }
   }
-  console.log(ctx.result);
   return ctx.result;
 }

@@ -126,3 +126,29 @@ Resources:
       PipelineConfig:
         Functions:
           - !GetAtt CreateListFunction.FunctionId
+
+  UpdateListFunction:
+    Type: AWS::AppSync::FunctionConfiguration
+    Properties:
+      Name: updateList
+      FunctionVersion: 2018-05-29
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DataSourceName: !GetAtt ListsDataSource.Name
+      CodeS3Location: "src/updateList.js"
+      Runtime:
+        RuntimeVersion: 1.0.0
+        Name: APPSYNC_JS
+  UpdateList:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      FieldName: updateList
+      TypeName: Mutation
+      Runtime:
+        RuntimeVersion: 1.0.0
+        Name: APPSYNC_JS
+      CodeS3Location: "src/pipeline.js"
+      Kind: PIPELINE
+      PipelineConfig:
+        Functions:
+          - !GetAtt UpdateListFunction.FunctionId
