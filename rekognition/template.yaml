@@ -32,7 +32,7 @@ Resources:
       CodeUri: src/
       Environment:
         Variables:
-          TABLE_NAME: !Ref BucketName
+          TABLE_NAME: !Ref MyTable
       Handler: app.handler
       Runtime: nodejs18.x
       Timeout: 90
