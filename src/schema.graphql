@@ -1,0 +1,9 @@
+type Velo {
+  id: ID!
+}
+type Query {
+  getVelo(id: ID!): Velo
+}
+type Schema {
+  query: Query
+}
