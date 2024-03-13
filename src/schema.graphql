@@ -11,3 +11,7 @@ type Mutation {
 type Schema {
   query: Query
 }
+
+type Subscription {
+  veloCreated: Velo @aws_subscribe(mutations: ["createVelo"])
+}
