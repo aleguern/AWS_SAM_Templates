@@ -1,13 +1,27 @@
 type Velo {
-  id: ID!
+  id: ID
+  name: String
+  description: String
+  price: Float
 }
+
+input VeloInput {
+  name: String!
+  description: String
+  price: Float!
+}
+
 type Query {
   getVelo(id: ID!): Velo
 }
 type Mutation {
-  createVelo: Velo
+  createVelo(velo: VeloInput!): Velo
 }
 
 type Schema {
   query: Query
+}
+
+type Subscription {
+  veloCreated: Velo @aws_subscribe(mutations: ["createVelo"])
 }

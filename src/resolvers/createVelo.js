@@ -1,10 +1,9 @@
+import { util } from '@aws-appsync/utils';
 import * as ddb from '@aws-appsync/utils/dynamodb';
 
 export function request(ctx) {
-  const {
-    arguments: { input },
-  } = ctx;
-  return ddb.put({ item: input });
+  const item = ctx.arguments.velo;
+  return ddb.put({ key: { id: util.autoId() }, item });
 }
 
 export function response(ctx) {
