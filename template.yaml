@@ -1,0 +1,82 @@
+# Template: graphqlAPI template with dynamodb table and datasource
+AWSTemplateFormatVersion: '2010-09-09'
+
+Transform:
+  - AWS::Serverless-2016-10-31
+
+Description: An AWS Serverless Specification template describing your function.
+
+Resources:
+  DynamoTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: DynamoTable
+      AttributeDefinitions:
+        - AttributeName: 'id'
+          AttributeType: S
+      KeySchema:
+        - AttributeName: 'id'
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  DynamoTableRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: '/'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service:
+                - 'appsync.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+
+  DynamoTableRoleRolePolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: 'DynamoTableRoleWrite'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Action:
+              - 'dynamodb:PutItem'
+              - 'dynamodb:GetItem'
+              - 'dynamodb:UpdateItem'
+            Resource: '*'
+      Roles:
+        - !Ref DynamoTableRole
+
+  GraphQLApi:
+    Type: AWS::AppSync::GraphQLApi
+    Properties:
+      Name: SampleAPI
+      AuthenticationType: API_KEY
+
+  GraphQLApiKey:
+    Type: AWS::AppSync::ApiKey
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+
+  WorkshopApiGraphQLSchema:
+    Type: AWS::AppSync::GraphQLSchema
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DefinitionS3Location: ./src/schema.graphql
+
+  WorkshopApiDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      Name: 'DynamoDB'
+      Type: AMAZON_DYNAMODB
+      ServiceRoleArn: !GetAtt DynamoTableRole.Arn
+      DynamoDBConfig:
+        TableName: !Ref DynamoTable
+        AwsRegion: !Ref 'AWS::Region'
