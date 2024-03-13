@@ -4,6 +4,9 @@ type Velo {
 type Query {
   getVelo(id: ID!): Velo
 }
+type Mutation {
+  createVelo: Velo
+}
 
 type Schema {
   query: Query
